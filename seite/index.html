@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#133f30">
+<title>Vietnam Reiseplan 2027</title>
+<link rel="icon" href="symbol.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<section class="login" id="login" hidden>
+  <form class="loginbox" id="loginForm">
+    <div class="eyebrow">Unser Reiseplan</div>
+    <h1><span class="star">★</span>VIETNAM</h1>
+    <label class="f"><span>Reise-Passwort</span>
+      <input type="password" id="pw" autocomplete="current-password" required>
+    </label>
+    <p class="loginfehler" id="loginFehler" hidden>Das Passwort stimmt nicht.</p>
+    <button class="addbtn" type="submit">Öffnen</button>
+    <p class="hint">Das Passwort bekommst du von der Reisegruppe. Dein Browser merkt es sich.</p>
+  </form>
+</section>
+
+<div id="app" hidden>
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-top">
+      <div>
+        <div class="eyebrow">Unser Reiseplan</div>
+        <h1><span class="star">★</span>VIETNAM</h1>
+      </div>
+      <div class="status" id="status" data-s="connecting" role="status"><i></i><span>Verbinde …</span></div>
+    </div>
+    <div class="hero-sub"><b>04. Januar – 04. Februar 2027</b> · Hanoi → Saigon → Hanoi · 32 Tage</div>
+    <div class="countdown" id="countdown"></div>
+    <div class="route" id="route" aria-label="Stationen laut Tagesplan"></div>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Abschnitte">
+  <div class="wrap">
+    <button data-go="uebersicht" class="on">Übersicht</button>
+    <button data-go="tage">Tagesplan</button>
+    <button data-go="budget">Budget</button>
+    <button data-go="checkliste">Checkliste</button>
+    <button data-go="notizen">Notizen</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <section id="uebersicht">
+    <h2>Eckdaten</h2>
+    <p class="hint">Alle Felder lassen sich direkt antippen und bearbeiten. Änderungen werden automatisch gespeichert und erscheinen nach wenigen Sekunden bei allen anderen.</p>
+    <div class="facts">
+      <div class="card">
+        <h3>Reisende &amp; Route</h3>
+        <label class="f"><span>Reisende</span><textarea id="f-reisende" rows="1" placeholder="Namen eintragen"></textarea></label>
+        <label class="f"><span>Route</span><textarea id="f-route" rows="1"></textarea></label>
+        <label class="f"><span>Transport vor Ort</span><textarea id="f-transport" rows="1" placeholder="z. B. Roller kaufen in Saigon"></textarea></label>
+        <label class="f"><span>Tagesbudget (pro Person)</span><input type="text" id="f-tagesbudget" placeholder="z. B. 35 €"></label>
+      </div>
+      <div class="card">
+        <h3>Hinflug <span class="tag">MUC → HAN</span></h3>
+        <label class="f"><span>Verbindung</span><textarea id="f-hinflug" rows="3"></textarea></label>
+      </div>
+      <div class="card">
+        <h3>Inlandsflug <span class="tag">HAN → SGN</span></h3>
+        <label class="f"><span>Verbindung</span><textarea id="f-inland" rows="1"></textarea></label>
+        <h3>Streckenplan Saigon → Hanoi</h3>
+        <label class="f"><span>Plan</span><textarea id="f-streckenplan" rows="2" placeholder="Etappen mit dem Roller"></textarea></label>
+      </div>
+      <div class="card">
+        <h3>Rückflug <span class="tag">HAN → MUC</span></h3>
+        <label class="f"><span>Verbindung</span><textarea id="f-rueckflug" rows="3"></textarea></label>
+      </div>
+      <div class="card">
+        <h3>Reiseversicherung &amp; Notfall</h3>
+        <label class="f"><span>Police / Notfallnummer</span><textarea id="f-versicherung" rows="2"></textarea></label>
+      </div>
+    </div>
+  </section>
+
+  <section id="tage">
+    <h2>Tagesplan</h2>
+    <p class="hint">Gelb hinterlegt sind Wochenenden. Tage ohne Programm sind als „offen“ markiert. Tipp auf einen Tag in der Leiste, um hinzuspringen.</p>
+    <div class="daystrip" id="daystrip"></div>
+    <div class="days" id="days"></div>
+    <div class="totals">Kosten laut Tagesplan <b id="dayTotal">0,00 €</b></div>
+  </section>
+
+  <section id="budget">
+    <h2>Budget</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Kategorie</th><th class="num">Geplant (€)</th><th class="num">Tatsächlich (€)</th><th class="act"></th></tr></thead>
+        <tbody id="budgetBody"></tbody>
+        <tfoot><tr><td>Summe</td><td class="num" id="sumPlan">0,00 €</td><td class="num" id="sumReal">0,00 €</td><td></td></tr></tfoot>
+      </table>
+    </div>
+    <button class="addbtn" id="addBudget" type="button">+ Kategorie hinzufügen</button>
+  </section>
+
+  <section id="checkliste">
+    <h2>Checkliste vor der Abreise</h2>
+    <div class="progress" id="progress"></div>
+    <div class="checks" id="checks"><div class="empty">Noch keine Punkte. Füge unten den ersten hinzu.</div></div>
+    <form class="addrow" id="addCheckForm">
+      <input type="text" id="newCheck" placeholder="Neuer Punkt, z. B. Adapter einpacken" autocomplete="off">
+      <button class="addbtn" type="submit">Hinzufügen</button>
+    </form>
+  </section>
+
+  <section id="notizen" class="notes">
+    <h2>Notizen &amp; Highlights</h2>
+    <div class="card">
+      <label class="f"><span>Freitext für alle</span><textarea id="f-notizen" rows="5" placeholder="Restaurant-Tipps, Erlebnisse, Ideen …"></textarea></label>
+    </div>
+  </section>
+
+  <footer><button type="button" class="del" id="abmelden">Auf diesem Gerät abmelden</button></footer>
+</main>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

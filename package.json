@@ -1,0 +1,10 @@
+{
+  "name": "vietnam-reiseplan",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Gemeinsamer Reiseplan Vietnam 2027",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.0"
+  }
+}
