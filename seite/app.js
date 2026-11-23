@@ -120,6 +120,106 @@ for (const k of ["reisende", "route", "transport", "tagesbudget", "hinflug", "in
   bind($("#f-" + k), "plan/info", k);
 }
 
+// ---------- Fettschrift & Textmarker ----------
+// Gespeichert wird **fett** und [gelb]markiert[/gelb]. Beim Bearbeiten sieht
+// man diese Zeichen, sonst wird der Text fett bzw. farbig angezeigt.
+const FARBEN = [["gelb", "Gelb"], ["gruen", "Grün"], ["rot", "Rot"], ["blau", "Blau"]];
+const FARB_RE = FARBEN.map((f) => f[0]).join("|");
+function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function formatiere(text) {
+  return esc(text)
+    .replace(new RegExp("\\[(" + FARB_RE + ")\\]([\\s\\S]+?)\\[\\/\\1\\]", "g"), '<mark class="m-$1">$2</mark>')
+    .replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>");
+}
+function ohneFormat(text) { return text.replace(/\*\*/g, "").replace(new RegExp("\\[\\/?(" + FARB_RE + ")\\]", "g"), ""); }
+function auswahl(ta) {
+  const v = ta.value;
+  let s, e;
+  if (document.activeElement === ta) { s = ta.selectionStart; e = ta.selectionEnd; }
+  else [s, e] = ta._sel || [v.length, v.length];
+  while (s < e && /\s/.test(v[s])) s++;
+  while (e > s && /\s/.test(v[e - 1])) e--;
+  return [v, s, e];
+}
+function fertig(ta, s, e) {
+  ta.hidden = false; if (ta._view) ta._view.hidden = true;
+  ta.focus(); ta.setSelectionRange(s, e); merkeAuswahl(ta);
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
+}
+function farbe(ta, f) {
+  let [v, s, e] = auswahl(ta);
+  const vor = v.slice(0, s).match(new RegExp("\\[(" + FARB_RE + ")\\]$"));
+  const nach = v.slice(e).match(new RegExp("^\\[\\/(" + FARB_RE + ")\\]"));
+  if (vor && nach && vor[1] === nach[1]) {
+    // schon markiert: gleiche Farbe → entfernen, andere Farbe → tauschen
+    const innen = v.slice(s, e), a = s - vor[0].length, z = e + nach[0].length;
+    const neu = vor[1] === f ? innen : "[" + f + "]" + innen + "[/" + f + "]";
+    ta.value = v.slice(0, a) + neu + v.slice(z);
+    s = vor[1] === f ? a : a + f.length + 2; e = s + innen.length;
+  } else {
+    const auf = "[" + f + "]", zu = "[/" + f + "]";
+    ta.value = v.slice(0, s) + auf + v.slice(s, e) + zu + v.slice(e);
+    s += auf.length; e += auf.length;
+  }
+  fertig(ta, s, e);
+}
+function zeichne(ta) {
+  const v = ta._view; if (!v) return;
+  v.classList.toggle("leer", !ta.value);
+  if (ta.value) v.innerHTML = formatiere(ta.value); else v.textContent = ta.placeholder || "";
+}
+function merkeAuswahl(ta) { ta._sel = [ta.selectionStart, ta.selectionEnd]; }
+function fett(ta) {
+  let [v, s, e] = auswahl(ta);
+  if (s >= 2 && v.slice(s - 2, s) === "**" && v.slice(e, e + 2) === "**") {            // schon fett → aufheben
+    ta.value = v.slice(0, s - 2) + v.slice(s, e) + v.slice(e + 2); s -= 2; e -= 2;
+  } else if (e - s >= 4 && v.slice(s, s + 2) === "**" && v.slice(e - 2, e) === "**") { // Sternchen mitmarkiert
+    ta.value = v.slice(0, s) + v.slice(s + 2, e - 2) + v.slice(e); e -= 4;
+  } else if (s === e) {                                                                 // nichts markiert
+    ta.value = v.slice(0, s) + "****" + v.slice(e); s += 2; e = s;
+  } else {
+    ta.value = v.slice(0, s) + "**" + v.slice(s, e) + "**" + v.slice(e); s += 2; e += 2;
+  }
+  fertig(ta, s, e);
+}
+function macheFormatierbar(ta) {
+  const label = ta.closest("label.f");
+  const view = document.createElement("div");
+  view.className = "view"; view.tabIndex = 0; view.setAttribute("role", "button");
+  view.setAttribute("aria-label", label.querySelector("span").textContent + " bearbeiten");
+  ta.after(view); ta._view = view; ta.hidden = true;
+  const bar = document.createElement("div");
+  bar.className = "fmt"; bar.setAttribute("role", "toolbar"); bar.setAttribute("aria-label", "Formatierung");
+  const knopf = (html, titel, klasse, tun) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = klasse; b.innerHTML = html; b.title = titel; b.setAttribute("aria-label", titel);
+    b.addEventListener("pointerdown", (e) => e.preventDefault()); // Markierung behalten
+    b.addEventListener("mousedown", (e) => e.preventDefault());
+    b.addEventListener("click", (e) => { e.preventDefault(); tun(); });
+    bar.appendChild(b);
+  };
+  knopf("<b>B</b>", "Fett (Strg+B)", "fb", () => fett(ta));
+  for (const [f, name] of FARBEN) knopf("", "Textmarker " + name, "fc m-" + f, () => farbe(ta, f));
+  label.appendChild(bar);
+  const bearbeiten = () => { view.hidden = true; ta.hidden = false; autosize(ta); ta.focus(); };
+  view.addEventListener("click", (e) => { e.preventDefault(); bearbeiten(); });
+  view.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bearbeiten(); } });
+  for (const ev of ["select", "keyup", "pointerup", "input"]) ta.addEventListener(ev, () => merkeAuswahl(ta));
+  ta.addEventListener("blur", (e) => {
+    merkeAuswahl(ta);
+    if (e.relatedTarget && bar.contains(e.relatedTarget)) return; // Knopf angetippt: im Bearbeiten bleiben
+    ta.hidden = true; view.hidden = false; zeichne(ta);
+  });
+  ta.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") { e.preventDefault(); fett(ta); } });
+  // Knopf hatte den Fokus (z. B. iPhone) und wird verlassen → Anzeige zurück
+  bar.addEventListener("focusout", (e) => {
+    if (e.relatedTarget === ta || (e.relatedTarget && bar.contains(e.relatedTarget))) return;
+    if (document.activeElement !== ta) { ta.hidden = true; view.hidden = false; zeichne(ta); }
+  });
+  zeichne(ta);
+}
+$$("#app textarea").forEach(macheFormatierbar);
+
 // Countdown / heutiger Tag
 (() => {
   const now = new Date(), t = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
@@ -173,7 +273,7 @@ function recompute() {
   $("#progress").textContent = cs.length ? done + " von " + cs.length + " erledigt" : "";
   const stops = [];
   for (const card of $$(".day")) {
-    const o = card.querySelector(".ort textarea").value.split("\n")[0].trim();
+    const o = ohneFormat(card.querySelector(".ort textarea").value).split("\n")[0].trim();
     if (!o) continue;
     if (stops.length && stops[stops.length - 1].o === o) stops[stops.length - 1].c++;
     else stops.push({ o, c: 1 });
@@ -248,7 +348,7 @@ function apply(path, data) {
     const v = data && data[f] != null ? data[f] : (el.type === "checkbox" ? false : "");
     if (el.type === "checkbox") { el.checked = !!v; const row = el.closest(".check"); if (row) row.classList.toggle("done", !!v); }
     else if (el.value !== String(v)) el.value = String(v);
-    autosize(el);
+    autosize(el); zeichne(el);
   }
 }
 

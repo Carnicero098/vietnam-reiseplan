@@ -14,6 +14,7 @@
   --hero-ink: #f2f6f0;
   --hero-muted: #b9cdc2;
   --danger: #b3372b;
+  --mk-gelb: #fde68a; --mk-gruen: #bbf0c9; --mk-rot: #fecaca; --mk-blau: #c7dcff;
   --font: "Segoe UI", system-ui, -apple-system, "Roboto", "Helvetica Neue", Arial, sans-serif;
   --radius: 10px;
   color-scheme: light;
@@ -25,6 +26,7 @@
     --bg: #0e1612; --surface: #15201a; --ink: #e5ece6; --muted: #9aaaa0; --line: #263529;
     --jade: #63c497; --jade-soft: #1a2e24; --sun: #f0bd4f; --weekend: #231f13;
     --hero: #0a2219; --hero-ink: #eef4ef; --hero-muted: #9fbcae; --danger: #ff7b6b;
+    --mk-gelb: #6b5410; --mk-gruen: #1f5a35; --mk-rot: #6e2626; --mk-blau: #24406e;
     color-scheme: dark;
   }
 }
@@ -91,6 +93,35 @@ input:focus, textarea:focus { border-color: var(--jade); background: var(--surfa
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.55; }
 textarea { overflow: hidden; }
 @media (max-width: 600px) { input[type="text"], textarea { font-size: 16px; } } /* verhindert Zoom auf dem iPhone */
+
+/* Anzeige mit Fettschrift + Fett-Knopf */
+label.f { position: relative; }
+.view { min-height: calc(1.45em + 12px); padding: 5px 7px; margin: 0 -7px; border: 1px solid transparent; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; line-height: 1.45; }
+.view:hover { border-color: var(--line); }
+.view:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+.view.leer { color: var(--muted); opacity: 0.55; }
+.view strong { font-weight: 800; }
+.day .ort .view { font-weight: 700; font-size: 1.05rem; }
+.day .ort .view strong { font-weight: 900; color: var(--jade); }
+.notes .view { min-height: 8rem; }
+/* Textmarker (Farben gelten in Anzeige und auf den Knöpfen) */
+mark { color: inherit; border-radius: 3px; padding: 0 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.m-gelb { background: var(--mk-gelb); }
+.m-gruen { background: var(--mk-gruen); }
+.m-rot { background: var(--mk-rot); }
+.m-blau { background: var(--mk-blau); }
+.fmt { display: none; position: absolute; top: -8px; right: 0; z-index: 2; align-items: center; gap: 4px; padding: 3px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.fmt button { font: inherit; width: 28px; height: 26px; border-radius: 5px; border: 1px solid transparent; cursor: pointer; padding: 0; color: var(--ink); background: transparent; }
+.fmt button.fb { font-weight: 900; font-size: 0.95rem; }
+.fmt button.fb:hover { background: var(--jade-soft); }
+.fmt button.fc { border-color: rgba(0,0,0,0.12); }
+.fmt button.m-gelb { background: var(--mk-gelb); }
+.fmt button.m-gruen { background: var(--mk-gruen); }
+.fmt button.m-rot { background: var(--mk-rot); }
+.fmt button.m-blau { background: var(--mk-blau); }
+.fmt button.fc:hover { border-color: var(--ink); }
+label.f:focus-within .fmt { display: inline-flex; }
+@media (max-width: 600px) { .view { font-size: 16px; } .fmt { top: -12px; } .fmt button { width: 34px; height: 32px; } }
 
 /* Übersicht */
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
