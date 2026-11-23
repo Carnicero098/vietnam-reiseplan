@@ -233,12 +233,12 @@ $$("#app textarea").forEach(macheFormatierbar);
 })();
 
 // ---------- Navigation ----------
-for (const b of $$("nav.tabs button")) {
+for (const b of $$(".tablist button")) {
   b.addEventListener("click", () => document.getElementById(b.dataset.go).scrollIntoView({ behavior: "smooth", block: "start" }));
 }
 if ("IntersectionObserver" in window) {
   const io = new IntersectionObserver((es) => {
-    for (const e of es) if (e.isIntersecting) for (const b of $$("nav.tabs button")) b.classList.toggle("on", b.dataset.go === e.target.id);
+    for (const e of es) if (e.isIntersecting) for (const b of $$(".tablist button")) b.classList.toggle("on", b.dataset.go === e.target.id);
   }, { rootMargin: "-30% 0px -60% 0px" });
   for (const s of $$("main section")) io.observe(s);
 }
@@ -306,6 +306,7 @@ function bind(el, path, field) {
 }
 function merke(path, field, value, delay) {
   pending[path] = pending[path] || {}; pending[path][field] = value;
+  offenAnzeige();
   clearTimeout(sendeTimer);
   sendeTimer = setTimeout(sende, delay);
   aktiv();
@@ -322,7 +323,8 @@ async function sende() {
     await api("POST", "aendern", { aenderungen });
     for (const p of pfade) { if (paket[p] === null) delete docs[p]; else docs[p] = Object.assign({}, docs[p] || {}, paket[p]); }
     sendet = false;
-    if (Object.keys(pending).length) sende(); else { setStatus("saved"); ladePlan().catch(() => {}); }
+    offenAnzeige();
+    if (Object.keys(pending).length) sende(); else { setStatus("saved", "Gespeichert " + uhrzeit()); ladePlan().catch(() => {}); }
   } catch (e) {
     sendet = false;
     // Nicht Gesendetes zurücklegen, neuere Eingaben haben Vorrang
@@ -468,6 +470,51 @@ document.addEventListener("visibilitychange", () => {
   else if (document.visibilityState === "hidden" && Object.keys(pending).length) sende();
 });
 addEventListener("pagehide", () => { if (Object.keys(pending).length) sende(); });
+// Warnung beim Schließen, solange etwas nicht beim Server angekommen ist
+addEventListener("beforeunload", (e) => {
+  if (Object.keys(pending).length || sendet) { sende(); e.preventDefault(); e.returnValue = ""; }
+});
+
+// ---------- Speichern-Knopf ----------
+// Schickt sofort alles ab, lädt den Plan danach frisch vom Server und prüft,
+// ob jede eigene Änderung dort wirklich angekommen ist.
+const saveBtn = $("#speichern");
+function uhrzeit() { return new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }); }
+function offenAnzeige() { saveBtn.classList.toggle("offen", Object.keys(pending).length > 0 || sendet); }
+const warte = (ms) => new Promise((ok) => setTimeout(ok, ms));
+let knopfTimer = null;
+function knopf(text, klasse) {
+  clearTimeout(knopfTimer);
+  saveBtn.textContent = text; saveBtn.classList.remove("ok", "fehler"); if (klasse) saveBtn.classList.add(klasse);
+  if (klasse) knopfTimer = setTimeout(() => { saveBtn.textContent = "Speichern"; saveBtn.classList.remove("ok", "fehler"); offenAnzeige(); }, 5000);
+}
+saveBtn.addEventListener("click", async () => {
+  if (saveBtn.disabled) return;
+  saveBtn.disabled = true; knopf("Speichert …");
+  const a = document.activeElement;
+  if (a && a !== document.body && a !== saveBtn && a.blur) a.blur(); // Feld abschließen → Änderung vormerken
+  const soll = JSON.parse(JSON.stringify(pending));
+  let ok = false;
+  try {
+    const bis = Date.now() + 15000;
+    while ((sendet || Object.keys(pending).length) && Date.now() < bis) {
+      if (!sendet && Object.keys(pending).length) { await sende(); if (Object.keys(pending).length) await warte(1000); }
+      else await warte(150);
+    }
+    if (!sendet && !Object.keys(pending).length) {
+      while (laedt) await warte(100);
+      const r = await api("GET", "plan");
+      ok = Object.entries(soll).every(([p, felder]) =>
+        felder === null ? !(p in r.docs) : Object.entries(felder).every(([f, v]) => r.docs[p] && r.docs[p][f] === v));
+      version = r.version; zeige(r.docs || {});
+    }
+  } catch (e) {
+    if (e instanceof FalschesPasswort) { saveBtn.disabled = false; knopf("Speichern"); zeigeLogin(true); return; }
+  }
+  saveBtn.disabled = false; offenAnzeige();
+  if (ok) { knopf("Gespeichert ✓ " + uhrzeit(), "ok"); setStatus("saved", "Gespeichert " + uhrzeit()); }
+  else { knopf("Nicht gespeichert – nochmal", "fehler"); setStatus("error", "Keine Verbindung – Änderungen noch nicht gespeichert"); }
+});
 if (LOKAL) addEventListener("storage", () => ladePlan().catch(() => {}));
 
 // ---------- Start ----------
