@@ -22,7 +22,9 @@ async function api(methode, pfad, body) {
   if (LOKAL) return lokalApi(methode, pfad, body);
   const r = await fetch("/api/" + pfad, {
     method: methode,
-    headers: Object.assign({ "x-passwort": passwort }, body ? { "Content-Type": "application/json", "x-reise": "1" } : {}),
+    // Ohne gespeichertes Passwort reicht das Anmelde-Cookie (setzt der Server)
+    headers: Object.assign(passwort ? { "x-passwort": passwort } : {}, body ? { "Content-Type": "application/json", "x-reise": "1" } : {}),
+    credentials: "same-origin",
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store"
   });
@@ -76,9 +78,12 @@ $("#loginForm").addEventListener("submit", async (e) => {
     else { $("#loginFehler").hidden = false; $("#loginFehler").textContent = "Keine Verbindung zum Server. Bitte später erneut versuchen."; }
   }
 });
-$("#abmelden").addEventListener("click", () => {
+$("#abmelden").addEventListener("click", async () => {
+  if (Object.keys(pending).length) await sende();
   try { localStorage.removeItem(PW_KEY); } catch {}
-  passwort = ""; zeigeLogin(false);
+  passwort = ""; version = 0;
+  if (!LOKAL) { try { await fetch("/api/abmelden", { method: "POST", credentials: "same-origin" }); } catch {} }
+  zeigeLogin(false);
 });
 
 // ---------- Tage aufbauen ----------
@@ -520,11 +525,25 @@ if (LOKAL) addEventListener("storage", () => ladePlan().catch(() => {}));
 // ---------- Start ----------
 recompute();
 (async () => {
-  if (!passwort) { zeigeLogin(false); return; }
-  loginEl.hidden = true; appEl.hidden = false;
-  $$("textarea").forEach(autosize);
-  try { await ladePlan(true); }
-  catch (e) { if (e instanceof FalschesPasswort) { zeigeLogin(true); return; } setStatus("stale"); }
+  // Gespeichertes Passwort oder Anmelde-Cookie → direkt in den Plan.
+  // Nur wenn beides fehlt, kommt die Passwortabfrage (ohne Fehlermeldung).
+  if (!passwort && LOKAL) { zeigeLogin(false); return; }
+  if (passwort) { loginEl.hidden = true; appEl.hidden = false; $$("textarea").forEach(autosize); }
+  try {
+    await ladePlan(true);
+    loginEl.hidden = true; appEl.hidden = false;
+  } catch (e) {
+    if (e instanceof FalschesPasswort) {
+      if (passwort) { try { localStorage.removeItem(PW_KEY); } catch {} } // Passwort wurde geändert
+      zeigeLogin(!!passwort); passwort = ""; return;
+    }
+    if (!passwort) { // weder Passwort noch Verbindung
+      zeigeLogin(false);
+      $("#loginFehler").hidden = false; $("#loginFehler").textContent = "Keine Verbindung zum Server. Bitte später erneut versuchen.";
+      return;
+    }
+    setStatus("stale");
+  }
   $$("textarea").forEach(autosize);
   startePolling();
 })();

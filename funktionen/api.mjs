@@ -4,6 +4,7 @@
 // POST /api/aendern            → { aenderungen: [{ pfad, felder } | { pfad, loeschen:true }] }
 // Beide brauchen den Kopf x-passwort.
 
+import { createHash } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 import { startzustand, pruefe, wendeAn } from "../plan.mjs";
 
@@ -14,12 +15,25 @@ export const config = { path: "/api/*" };
 const PASSWORT = process.env.REISE_PASSWORT || "Traumfrau123";
 const SCHLUESSEL = "plan";
 
+// Anmelde-Cookie: einmal Passwort eingeben, danach bleibt das Gerät
+// angemeldet. Es wird vom Server gesetzt (Safari löscht solche Cookies nicht
+// nach 7 Tagen) und verlängert sich bei jedem Besuch auf 400 Tage.
+// Enthält nur einen Fingerabdruck des Passworts; wird REISE_PASSWORT
+// geändert, sind alle Geräte automatisch abgemeldet.
+const TOKEN = createHash("sha256").update("vietnam-reiseplan:" + PASSWORT).digest("hex");
+const COOKIE = "reise=" + TOKEN + "; Path=/api; Max-Age=34560000; HttpOnly; Secure; SameSite=Strict";
+const COOKIE_WEG = "reise=; Path=/api; Max-Age=0; HttpOnly; Secure; SameSite=Strict";
+const hatCookie = (req) => (req.headers.get("cookie") || "").split(/;\s*/).includes("reise=" + TOKEN);
+
 const speicher = () => getStore({ name: "vietnam-reiseplan", region: "eu-central-1", consistency: "strong" });
 
-const json = (data, status = 200) =>
+const json = (data, status = 200, cookie) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    headers: Object.assign(
+      { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+      cookie ? { "Set-Cookie": cookie } : {}
+    )
   });
 
 async function lies(b) {
@@ -31,7 +45,10 @@ async function lies(b) {
 export default async (req) => {
   const url = new URL(req.url);
   const pfad = url.pathname.replace(/^\/(\.netlify\/functions\/)?api\/?/, "");
-  if (req.headers.get("x-passwort") !== PASSWORT) return json({ fehler: "passwort" }, 401);
+  if (req.method === "POST" && pfad === "abmelden") return json({ ok: true }, 200, COOKIE_WEG);
+
+  const perPasswort = req.headers.get("x-passwort") === PASSWORT;
+  if (!perPasswort && !hatCookie(req)) return json({ fehler: "passwort" }, 401, COOKIE_WEG);
 
   const b = speicher();
   try {
@@ -40,7 +57,7 @@ export default async (req) => {
       if (!zustand) zustand = startzustand();
       const v = Number(url.searchParams.get("v"));
       if (v && v === zustand.version) return json({ gleich: true, version: zustand.version });
-      return json(zustand);
+      return json(zustand, 200, COOKIE); // volles Laden = Öffnen der Seite → Anmeldung verlängern
     }
 
     if (req.method === "POST" && pfad === "aendern") {
